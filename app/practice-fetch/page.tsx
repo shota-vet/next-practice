@@ -26,8 +26,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PokemonDetail | null>(null);
   //   const [selected, setSelected]=useState(null);だと型推論でsetStateもnullになるので、このstateで使う型をジェネリクスで書く必要がある
-
-  //   状態で変化するものは何か→変化する状態をstateで管理。
+  //   状態で変化するものは何か→変化する状態をstateで管理。errorをstate管理するのはエラーが出たときに画面に表示することを可能にするため
+  const [detailLoading, setDetailLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -53,6 +53,7 @@ export default function Page() {
   }
 
   async function loadDetail(url: string) {
+    setDetailLoading(true);
     try {
       const res = await fetch(url);
       if (!res.ok) {
@@ -64,6 +65,7 @@ export default function Page() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown Error");
     }
+    setDetailLoading(false);
   }
 
   return (
@@ -73,14 +75,14 @@ export default function Page() {
         {/* loadingがtrueの時はbuttonを押せないようにしているdisabledは真偽型の属性。 */}
         Load 10 pokemon
       </button>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}　
+      {error && <p style={{ color: "red" }}>{error}</p>}　
       {/* このerrorはuseStateのerror、つまりstringかnull*/}
       <p>Count:{pokemon.length}</p>
       <ul>
         {pokemon.map((p) => (
           <li
             key={p.name}
-            style={{ cursor: "pointer" }}
+            style={{ cursor: detailLoading ? "not-allowed" : "pointer" }}
             onClick={() => loadDetail(p.url)}
           >
             {p.name}
@@ -88,6 +90,7 @@ export default function Page() {
         ))}
       </ul>
       <hr />
+      {detailLoading && <p>Loading detail...</p>}
       <h2>Detail</h2>
       {selected ? (
         <div>
