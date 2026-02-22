@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type Pokemon = {
   name: string;
@@ -12,11 +12,20 @@ type PokemonResponse = {
   results: Pokemon[];
 };
 // 返ってくるデータの型
+type PokemonDetail = {
+  name: string;
+  height: number;
+  weight: number;
+  types: { type: { name: string } }[];
+};
+// typesの配列は[{ type: { name: "grass" } },{ type: { name: "poison" } }]のような形。
 
 export default function Page() {
   const [pokemon, setPokemon] = useState<Pokemon[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<PokemonDetail | null>(null);
+  //   const [selected, setSelected]=useState(null);だと型推論でsetStateもnullになるので、このstateで使う型をジェネリクスで書く必要がある
 
   //   状態で変化するものは何か→変化する状態をstateで管理。
 
@@ -43,6 +52,20 @@ export default function Page() {
     // tryで囲むのは一連の非同期処理をまとめて囲む
   }
 
+  async function loadDetail(url: string) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data: PokemonDetail = await res.json();
+      console.log(data);
+      setSelected(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown Error");
+    }
+  }
+
   return (
     <main style={{ padding: 20 }}>
       <h1>Pokemon List</h1>
@@ -55,11 +78,28 @@ export default function Page() {
       <p>Count:{pokemon.length}</p>
       <ul>
         {pokemon.map((p) => (
-          <li key={p.name} style={{ cursor: "pointer" }}>
+          <li
+            key={p.name}
+            style={{ cursor: "pointer" }}
+            onClick={() => loadDetail(p.url)}
+          >
             {p.name}
           </li>
         ))}
       </ul>
+      <hr />
+      <h2>Detail</h2>
+      {selected ? (
+        <div>
+          <p>Name:{selected.name}</p> <p>Height:{selected.height}</p>
+          <p>Weight:{selected.weight}</p>
+          <p>Types:{selected.types.map((t) => t.type.name).join(",")}</p>
+          {/* Joinで配列["grass", "poison"]→"grass,poison"（文字列）という作業 */}
+          {/* 三項演算子を使った条件レンダリング */}
+        </div>
+      ) : (
+        <p>Click a pokemon</p>
+      )}
     </main>
   );
 }
