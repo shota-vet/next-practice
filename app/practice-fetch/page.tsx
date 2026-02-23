@@ -75,7 +75,7 @@ export default function Page() {
         {/* loadingがtrueの時はbuttonを押せないようにしているdisabledは真偽型の属性。 */}
         Load 10 pokemon
       </button>
-      {error && <p style={{ color: "red" }}>{error}</p>}　
+      {error && <p style={{ color: "red" }}>{error}</p>}
       {/* このerrorはuseStateのerror、つまりstringかnull*/}
       <p>Count:{pokemon.length}</p>
       <ul>
