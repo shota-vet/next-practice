@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Pokemon = {
   name: string;
@@ -32,6 +32,7 @@ export default function Page() {
   async function load() {
     setLoading(true);
     try {
+      setError(null); // ← あると便利（前のエラーを消す）
       const res = await fetch("https://pokeapi.co/api/v2/pokemon?limit=10");
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -68,12 +69,17 @@ export default function Page() {
     setDetailLoading(false);
   }
 
+  useEffect(() => {
+    load();
+  }, []);
+  // 初回レンダリング時だけ自動でload()実行
+
   return (
     <main style={{ padding: 20 }}>
       <h1>Pokemon List</h1>
       <button onClick={load} disabled={loading}>
         {/* loadingがtrueの時はbuttonを押せないようにしているdisabledは真偽型の属性。 */}
-        Load 10 pokemon
+        Reload 10 pokemon
       </button>
       {error && <p style={{ color: "red" }}>{error}</p>}
       {/* このerrorはuseStateのerror、つまりstringかnull*/}
