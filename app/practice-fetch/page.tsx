@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import PokemonList from "./components/PokemonList/PokemonList";
 
 type Pokemon = {
   name: string;
@@ -28,12 +29,15 @@ export default function Page() {
   //   const [selected, setSelected]=useState(null);だと型推論でsetStateもnullになるので、このstateで使う型をジェネリクスで書く必要がある
   //   状態で変化するものは何か→変化する状態をstateで管理。errorをstate管理するのはエラーが出たときに画面に表示することを可能にするため
   const [detailLoading, setDetailLoading] = useState(false);
+  const [offset, setOffset] = useState(0);
 
   async function load() {
     setLoading(true);
     try {
       setError(null); // ← あると便利（前のエラーを消す）
-      const res = await fetch("https://pokeapi.co/api/v2/pokemon?limit=10");
+      const res = await fetch(
+        `https://pokeapi.co/api/v2/pokemon?limit=10&offset=${offset}`,
+      );
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -71,8 +75,8 @@ export default function Page() {
 
   useEffect(() => {
     load();
-  }, []);
-  // 初回レンダリング時だけ自動でload()実行
+  }, [offset]);
+  // offsetが変わるたび自動で。
 
   return (
     <main style={{ padding: 20 }}>
@@ -81,20 +85,19 @@ export default function Page() {
         {/* loadingがtrueの時はbuttonを押せないようにしているdisabledは真偽型の属性。 */}
         Reload 10 pokemon
       </button>
+      <br />
+      <button onClick={() => setOffset((prev) => Math.max(0, prev - 10))}>
+        Prev
+      </button>
+      <br /> {/*  Math.max(a,b)は大きい方を返すという意味 */}
+      <button onClick={() => setOffset((prev) => prev + 10)}>Next</button>
       {error && <p style={{ color: "red" }}>{error}</p>}
       {/* このerrorはuseStateのerror、つまりstringかnull*/}
-      <p>Count:{pokemon.length}</p>
-      <ul>
-        {pokemon.map((p) => (
-          <li
-            key={p.name}
-            style={{ cursor: detailLoading ? "not-allowed" : "pointer" }}
-            onClick={() => loadDetail(p.url)}
-          >
-            {p.name}
-          </li>
-        ))}
-      </ul>
+      <PokemonList
+        pokemon={pokemon}
+        detailLoading={detailLoading}
+        onSelect={loadDetail}
+      />
       <hr />
       {detailLoading && <p>Loading detail...</p>}
       <h2>Detail</h2>
