@@ -15,8 +15,6 @@ type PokemonResponse = {
   results: Pokemon[];
 };
 
-
-
 // 返ってくるデータの型
 type PokemonDetail = {
   name: string;
@@ -26,49 +24,58 @@ type PokemonDetail = {
 };
 // typesの配列は[{ type: { name: "grass" } },{ type: { name: "poison" } }]のような形。
 
-
-const PAGE_WINDOW = 5;
+const PAGE_SIZE_LIST = [10, 30, 50];
 
 export default function Page() {
-  const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-
   const [pokemonList, setPokemonList] = useState<Pokemon[]>([]);
-  const [selectedPokemon, setSelectedPokemon] = useState<PokemonDetail | null>(null);
-  //   const [selected, setSelected]=useState(null);だと型推論でsetStateもnullになるので、このstateで使う型をジェネリクスで書く必要がある
-  //   状態で変化するものは何か→変化する状態をstateで管理。errorをstate管理するのはエラーが出たときに画面に表示することを可能にするため
+  const [pokemonListIsLoading, setPokenmonListIsLoading] = useState(false);
 
-  const [loading, setLoading] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedPokemon, setSelectedPokemon] = useState<PokemonDetail | null>(
+    null
+  );
+  const [pokemonDetailIsLoading, setPokemonDetailIsLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
-  const [pokemonPerPage, setPokemonPerPage] = useState(10);
-  const offset = (page - 1) * pokemonPerPage;
-  const totalPages = Math.ceil(totalCount / pokemonPerPage); //切り上げ
-  const HALF_WINDOW = Math.floor(PAGE_WINDOW / 2); //切り捨て
 
-  let startPage = page - HALF_WINDOW;
-  let endPage = page + HALF_WINDOW;
-  if (startPage < 1) {
-    startPage = 1;
-    endPage = PAGE_WINDOW;
+  // ページネーション関連
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const offset = (currentPage - 1) * pageSize;
+
+  const PAGE_WINDOW = 5; // 最初と最後のページをのぞいて、一度に表示するページの最大数
+  const HALF_WINDOW = Math.floor(PAGE_WINDOW / 2);
+
+  let visiblePageStartPage = currentPage - HALF_WINDOW;
+  let visiblePageEndPage = currentPage + HALF_WINDOW;
+
+  if (visiblePageStartPage < 1) {
+    visiblePageStartPage = 1;
+    visiblePageEndPage = PAGE_WINDOW;
   }
-  if (endPage > totalPages) {
-    endPage = totalPages;
-    startPage = totalPages - PAGE_WINDOW + 1;
+  if (visiblePageEndPage > totalPages) {
+    visiblePageEndPage = totalPages;
+    visiblePageStartPage = totalPages - PAGE_WINDOW + 1;
   }
 
-  const visiblePages: number[] = [];
-  for (let i = startPage; i <= endPage; i++) {
-    visiblePages.push(i);
-  }
+  // 表示するページの大きなかたまりの部分を表す配列
+  const visiblePageSize = visiblePageEndPage - visiblePageStartPage + 1;
+  const visiblePages = [...Array(visiblePageSize)].map(
+    (_, index) => visiblePageStartPage + index
+  );
 
+  // console.log(
+  //   Array(4),
+  //   [...Array(4)].map((_, index) => 6 + index)
+  // );
 
   const load = async () => {
-    setLoading(true);
+    setPokenmonListIsLoading(true);
     setError(null); // ← あると便利（前のエラーを消す）
     try {
       const res = await fetch(
-        `https://pokeapi.co/api/v2/pokemon?limit=${pokemonPerPage}&offset=${offset}`,
+        `https://pokeapi.co/api/v2/pokemon?limit=${pageSize}&offset=${offset}`
       );
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -86,13 +93,13 @@ export default function Page() {
       setError(e instanceof Error ? e.message : "Unknown Error");
     } //instanceof は JSの型チェックの仕組み。今回のerrorが Errorクラスから作られたオブジェクトかどうかを調べてる。errorをUIで表示させるためのuseState
     // ここでの e はErrorクラスのインスタンス
-    setLoading(false);
+    setPokenmonListIsLoading(false);
     // 最後二つのレンダリングは同じタイミングで走るのでまとめて一回のレンダリングで済む。これがReactのバッチ処理。
     // tryで囲むのは一連の非同期処理をまとめて囲む
-  }
+  };
 
   const loadDetail = async (url: string) => {
-    setDetailLoading(true);
+    setPokemonDetailIsLoading(true);
     try {
       const res = await fetch(url);
       if (!res.ok) {
@@ -103,13 +110,15 @@ export default function Page() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown Error");
     }
-    setDetailLoading(false);
-  }
+    setPokemonDetailIsLoading(false);
+  };
 
   useEffect(() => {
     load();
-  }, [page]);
+  }, [currentPage]);
   // pageが変わるたび自動で。
+
+  console.log(visiblePageStartPage, visiblePageEndPage, totalPages);
 
   return (
     <main style={{ padding: 20 }}>
@@ -120,26 +129,32 @@ export default function Page() {
 
       <PokemonList
         pokemon={pokemonList}
-        detailLoading={detailLoading}
+        detailLoading={pokemonDetailIsLoading}
         onSelect={loadDetail}
       />
-       <button onClick={() => setPage((prev) => prev - 1)} disabled={page === 1}>
+
+      <button
+        onClick={() => setCurrentPage((prev) => prev - 1)}
+        disabled={currentPage === 1}
+      >
         Prev
       </button>
-      {startPage > 1 && (
+      {visiblePageStartPage > 1 && (
         <>
-          <button onClick={() => setPage(1)} style={{ margin: "0 4px" }}>
+          <button onClick={() => setCurrentPage(1)} style={{ margin: "0 4px" }}>
             1
           </button>
 
-          {startPage > 2 && <span style={{ margin: "0 4px" }}>...</span>}
+          {visiblePageStartPage > 2 && (
+            <span style={{ margin: "0 4px" }}>...</span>
+          )}
         </>
       )}
 
       {visiblePages.map((p) => (
         <button
           key={p}
-          onClick={() => setPage(p)}
+          onClick={() => setCurrentPage(p)}
           style={{
             margin: "0 4px",
           }}
@@ -148,42 +163,43 @@ export default function Page() {
         </button>
       ))}
 
-          {endPage < totalPages && (
+      {visiblePageEndPage < totalPages && (
         <>
-          {endPage < totalPages - 1 && <span style={{ margin: "0 4px" }}>...</span>}
+          {visiblePageEndPage < totalPages - 1 && (
+            <span style={{ margin: "0 4px" }}>...</span>
+          )}
           <button
-            onClick={() => setPage(totalPages)}
+            onClick={() => setCurrentPage(totalPages)}
             style={{ margin: "0 4px" }}
           >
             {totalPages}
           </button>
         </>
       )}
-      <button onClick={() => setPage((prev) => prev + 1)}>
-        Next
-      </button>
+      <button onClick={() => setCurrentPage((prev) => prev + 1)}>Next</button>
       <hr />
       <label>
-  表示件数:
-  <select
-    value={pokemonPerPage}
-    onChange={(e) => {
-      setPokemonPerPage(Number(e.target.value));
-      setPage(1);
-    }}
-  >
-    {[10, 30, 50].map((n) => (
-      <option key={n} value={n}>
-        {n}
-      </option>
-    ))}
-  </select>
-</label>
-      {detailLoading && <p>Loading detail...</p>}
+        表示件数:
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            setCurrentPage(1);
+          }}
+        >
+          {PAGE_SIZE_LIST.map((elem) => (
+            <option key={elem} value={elem}>
+              {elem}
+            </option>
+          ))}
+        </select>
+      </label>
+      {pokemonDetailIsLoading && <p>Loading detail...</p>}
       <h2>Detail</h2>
       {selectedPokemon ? (
         <div>
-          <p>Name:{selectedPokemon.name}</p> <p>Height:{selectedPokemon.height}</p>
+          <p>Name:{selectedPokemon.name}</p>{" "}
+          <p>Height:{selectedPokemon.height}</p>
           <p>Weight:{selectedPokemon.weight}</p>
           <p>Types:{selectedPokemon.types.map((t) => t.type.name).join(",")}</p>
           {/* Joinで配列["grass", "poison"]→"grass,poison"（文字列）という作業 */}
